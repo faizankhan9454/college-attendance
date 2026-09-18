@@ -30,7 +30,7 @@ input[type=number],input[type=text]{width:100%;padding:9px;border:1px solid var(
 </head>
 <body>
 <header><div class="wrap head">
-  <div><h1>🎓 College Attendance Tracker</h1><p>Track classes, attendance and monthly percentage — saved on this device.</p></div>
+  <div><h1>🎓 College Attendance Tracker</h1><p>Track classes, attendance and monthly percentage — shared with everyone using this link.</p></div>
   <div class="controls">
     <select id="year"></select><select id="month"></select>
     <button class="btn" onclick="openSettings()">⚙ Settings</button>
@@ -89,12 +89,89 @@ input[type=number],input[type=text]{width:100%;padding:9px;border:1px solid var(
 
 <script>
 const KEY='collegeAttendanceTracker_v1';
-let data=JSON.parse(localStorage.getItem(KEY)||'null')|| {target:75,subjects:[],months:{},weeklyDefaults:{mon:5,tue:5,wed:5,thu:5,fri:5,sat:3,sun:0}};
+const SUPABASE_URL='https://gyintbmsnbiaoecezejd.supabase.co';
+const SUPABASE_KEY='sb_publishable__sZj_jdoiNJljpe5AoBlBA_LoAl3k-G';
+const SHARED_ID='shared';
+const DEFAULT_DATA={target:75,subjects:[],months:{},weeklyDefaults:{mon:5,tue:5,wed:5,thu:5,fri:5,sat:3,sun:0}};
+let data=JSON.parse(localStorage.getItem(KEY)||'null')||JSON.parse(JSON.stringify(DEFAULT_DATA));
+let cloudReady=false;
+let cloudUpdatedAt=null;
+let cloudSyncInProgress=false;
+let lastCloudError='';
+
+function isMeaningfulData(x){
+  if(!x) return false;
+  return Object.keys(x.months||{}).some(k=>Object.values(x.months[k]?.days||{}).some(d=>(d.attendance||[]).some(v=>v===true||v===false)));
+}
+async function loadSharedData(){
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/attendance_state?id=eq.'+encodeURIComponent(SHARED_ID)+'&select=data,updated_at',{
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}
+    });
+    if(!r.ok) throw new Error('Cloud read failed: '+r.status);
+    const rows=await r.json();
+    if(rows.length && rows[0].data && Object.keys(rows[0].data).length){
+      data=rows[0].data;
+      cloudUpdatedAt=rows[0].updated_at||null;
+      localStorage.setItem(KEY,JSON.stringify(data));
+    }else if(isMeaningfulData(data)){
+      await syncSharedData();
+    }
+    cloudReady=true;
+    render();
+  }catch(e){
+    lastCloudError=e.message||String(e);
+    cloudReady=true;
+    render();
+  }
+}
+async function syncSharedData(){
+  if(!cloudReady || cloudSyncInProgress) return;
+  cloudSyncInProgress=true;
+  try{
+    const now=new Date().toISOString();
+    const r=await fetch(SUPABASE_URL+'/rest/v1/attendance_state',{
+      method:'POST',
+      headers:{
+        apikey:SUPABASE_KEY,
+        Authorization:'Bearer '+SUPABASE_KEY,
+        'Content-Type':'application/json',
+        Prefer:'resolution=merge-duplicates,return=representation'
+      },
+      body:JSON.stringify({id:SHARED_ID,data:data,updated_at:now})
+    });
+    if(!r.ok) throw new Error('Cloud save failed: '+r.status);
+    cloudUpdatedAt=now;
+    lastCloudError='';
+  }catch(e){
+    lastCloudError=e.message||String(e);
+    console.error(e);
+  }finally{
+    cloudSyncInProgress=false;
+  }
+}
+async function refreshSharedData(){
+  if(!cloudReady || cloudSyncInProgress) return;
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/attendance_state?id=eq.'+encodeURIComponent(SHARED_ID)+'&select=data,updated_at',{
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}
+    });
+    if(!r.ok) return;
+    const rows=await r.json();
+    if(rows.length && rows[0].data && rows[0].updated_at && rows[0].updated_at!==cloudUpdatedAt){
+      data=rows[0].data;
+      cloudUpdatedAt=rows[0].updated_at;
+      localStorage.setItem(KEY,JSON.stringify(data));
+      render();
+      toast('Shared data updated');
+    }
+  }catch(e){ console.error(e); }
+}
 let view=new Date(); view.setDate(1);
 const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+function save(){localStorage.setItem(KEY,JSON.stringify(data));if(cloudReady)syncSharedData();}
 function monthKey(){return `${view.getFullYear()}-${String(view.getMonth()+1).padStart(2,'0')}`;}
 function monthData(){let k=monthKey(); if(!data.months[k]) data.months[k]={days:{}}; return data.months[k];}
 function dayKey(d){return String(d).padStart(2,'0');}
@@ -124,7 +201,7 @@ function render(){
   document.getElementById('year').innerHTML=''; for(let y=view.getFullYear()-2;y<=view.getFullYear()+2;y++) document.getElementById('year').innerHTML+=`<option ${y===view.getFullYear()?'selected':''}>${y}</option>`;
   document.getElementById('month').innerHTML=months.map((m,i)=>`<option value="${i}" ${i===view.getMonth()?'selected':''}>${m}</option>`).join('');
   document.getElementById('monthTitle').textContent=`${months[view.getMonth()]} ${view.getFullYear()}`;
-  renderCalendar(); renderSummary(); save();
+  renderCalendar(); renderSummary();
 }
 document.getElementById('year').onchange=e=>{view.setFullYear(+e.target.value);render()};
 document.getElementById('month').onchange=e=>{view.setMonth(+e.target.value);render()};
@@ -397,8 +474,10 @@ function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader
 function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 render();
+loadSharedData();
 let trackerDate=new Date().toDateString();
 setInterval(()=>{const today=new Date().toDateString();if(today!==trackerDate){trackerDate=today;render();}},60000);
+setInterval(refreshSharedData,5000);
 </script>
 </body>
 </html>
