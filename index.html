@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>College Attendance Tracker</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#697386;--line:#e5e9f2;--primary:#4f46e5;--primary2:#6366f1;--green:#16a34a;--red:#dc2626;--amber:#d97706;--shadow:0 10px 30px rgba(25,35,60,.08)}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,#3730a3,#6366f1);color:white;padding:28px 20px}
+.wrap{max-width:1150px;margin:auto}.head{display:flex;justify-content:space-between;align-items:center;gap:20px}.head h1{margin:0 0 6px;font-size:28px}.head p{margin:0;opacity:.85}
+button,select,input{font:inherit} button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:650}
+.btn{background:white;color:#3730a3}.btn-primary{background:var(--primary);color:#fff}.btn-soft{background:#eef2ff;color:#3730a3}.btn-danger{background:#fee2e2;color:#991b1b}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.controls select{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.4);background:white;color:#172033}
+main{padding:22px 20px 50px}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}.stat-label{color:var(--muted);font-size:13px}.stat{font-size:29px;font-weight:800;margin-top:5px}.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}
+.layout{display:grid;grid-template-columns:1.6fr .9fr;gap:18px}.card h2{font-size:18px;margin:0 0 14px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse} th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:center;font-size:13px} th{color:var(--muted);font-weight:700} td:first-child,th:first-child{text-align:left}
+.status{display:inline-flex;min-width:38px;justify-content:center;padding:6px 8px;border-radius:8px;font-weight:800;font-size:12px}.present{background:#dcfce7;color:#166534}.absent{background:#fee2e2;color:#991b1b}.na{background:#f1f5f9;color:#64748b}
+input[type=number],input[type=text]{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px}.subject-row{display:grid;grid-template-columns:1fr 90px 90px;gap:8px;align-items:center;margin:8px 0}
+.progress{height:10px;background:#edf0f5;border-radius:999px;overflow:hidden;margin:9px 0}.progress>div{height:100%;background:linear-gradient(90deg,#4f46e5,#8b5cf6)}
+.month-nav{display:flex;align-items:center;gap:8px}.month-title{font-weight:800;min-width:155px;text-align:center}
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}.dow{text-align:center;color:var(--muted);font-size:12px;font-weight:700;padding:4px}.day{min-height:82px;background:#fafbfe;border:1px solid var(--line);border-radius:10px;padding:7px;position:relative}.day.weekend{background:#f8fafc}.day .num{font-size:12px;font-weight:800}.classes{font-size:11px;color:var(--muted);margin-top:5px}.day-btns{display:flex;gap:3px;margin-top:6px}.day-btns button{padding:4px 6px;font-size:10px;border-radius:6px}.day.present-day{border-color:#86efac;background:#f0fdf4}.day.absent-day{border-color:#fca5a5;background:#fef2f2}.day.holiday-day{border-color:#c4b5fd;background:#f5f3ff}
+.note{font-size:12px;color:var(--muted);line-height:1.5}.empty{padding:25px;text-align:center;color:var(--muted)}
+.modal-back{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:5}.modal{background:white;border-radius:18px;padding:22px;max-width:480px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.2)}.modal h3{margin-top:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.toast{position:fixed;bottom:20px;right:20px;background:#172033;color:#fff;padding:12px 16px;border-radius:10px;display:none;z-index:10}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}.layout{grid-template-columns:1fr}} 
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+@media(max-width:560px){.grid{grid-template-columns:1fr 1fr}.head{align-items:flex-start;flex-direction:column}.day{min-height:75px;padding:5px}.day-btns{flex-wrap:wrap}.day-btns button{font-size:9px;padding:3px 4px}.subject-row{grid-template-columns:1fr 65px 65px}}
+</style>
+</head>
+<body>
+<header><div class="wrap head">
+  <div><h1>🎓 College Attendance Tracker</h1><p>Track classes, attendance and monthly percentage — saved on this device.</p></div>
+  <div class="controls">
+    <select id="year"></select><select id="month"></select>
+    <button class="btn" onclick="openSettings()">⚙ Settings</button>
+    <button class="btn" onclick="exportData()">⬇ Export</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">⬆ Import</button>
+    <input id="importFile" type="file" accept=".json" hidden onchange="importData(event)">
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="grid">
+    <div class="card"><div class="stat-label">Classes Conducted</div><div class="stat" id="conducted">0</div></div>
+    <div class="card"><div class="stat-label">Classes Attended</div><div class="stat green" id="attended">0</div></div>
+    <div class="card"><div class="stat-label">Classes Missed</div><div class="stat red" id="missed">0</div></div>
+    <div class="card"><div class="stat-label">Attendance</div><div class="stat amber" id="percentage">0%</div><div class="progress"><div id="progress"></div></div></div>
+    <div class="card"><div class="stat-label">If you attend all remaining classes</div><div class="stat green" id="projected">0%</div><div class="note" id="projectedDetail">Live month-end projection</div></div>
+  </div>
+
+  <div class="layout">
+    <section class="card">
+      <div class="toolbar">
+        <div class="month-nav"><button class="btn-soft" onclick="changeMonth(-1)">‹</button><div class="month-title" id="monthTitle"></div><button class="btn-soft" onclick="changeMonth(1)">›</button></div>
+        <button class="btn-primary" onclick="openDayModal()">＋ Add / Edit Day</button>
+      </div>
+      <div class="day-grid" id="calendar"></div>
+      <p class="note">Default schedule: <b>Mon–Fri = 5 classes</b>, <b>Saturday = 3 classes</b>. Configure these in ⚙ Settings, and add monthly holidays. Individual days can still be edited.</p>
+    </section>
+
+    <aside class="card">
+      <h2>📊 Monthly Summary</h2>
+      <div id="subjectSummary"></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <h2>📚 Combined Attendance</h2>
+      <div id="combinedAttendance"></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <h2>⚠️ Current Month Missed-Class Detail</h2>
+      <div id="missProjection"></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <h2>🎯 Attendance Target</h2>
+      <div style="display:flex;gap:8px"><input id="target" type="number" min="1" max="100" value="75"><button class="btn-primary" onclick="saveTarget()">Save</button></div>
+      <p class="note" id="targetMsg"></p>
+      <div class="card" style="background:#fafbff;box-shadow:none;margin-top:10px;padding:12px">
+        <b>📅 Month-end projection</b>
+        <div class="note">Live calculation: uses your combined recorded attendance plus the unrecorded classes remaining this month; holidays are skipped.</div>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <h2>⚡ Quick Actions</h2>
+      <button class="btn-soft" style="width:100%;margin-bottom:8px" onclick="markAllCurrentWeek(true)">Mark current month present</button>
+      <button class="btn-danger" style="width:100%" onclick="clearMonth()">🗑 Clear this month</button>
+    </aside>
+  </div>
+</main>
+
+<div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='collegeAttendanceTracker_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'null')|| {target:75,subjects:[],months:{},weeklyDefaults:{mon:5,tue:5,wed:5,thu:5,fri:5,sat:3,sun:0}};
+let view=new Date(); view.setDate(1);
+const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+function monthKey(){return `${view.getFullYear()}-${String(view.getMonth()+1).padStart(2,'0')}`;}
+function monthData(){let k=monthKey(); if(!data.months[k]) data.months[k]={days:{}}; return data.months[k];}
+function dayKey(d){return String(d).padStart(2,'0');}
+function getDay(d){let m=monthData(); return m.days[dayKey(d)]||null;}
+function ensureDay(d){
+ let m=monthData(), k=dayKey(d);
+ if(!m.days[k]){
+   const c=isHoliday(d)?0:defaultClasses(d);
+   m.days[k]={classes:c,attendance:Array(c).fill(null)};
+ }
+ return m.days[k];
+}
+function defaultClasses(d){
+ const day=new Date(view.getFullYear(),view.getMonth(),d).getDay();
+ const k=['sun','mon','tue','wed','thu','fri','sat'][day];
+ const defaults=data.weeklyDefaults||{mon:5,tue:5,wed:5,thu:5,fri:5,sat:3,sun:0};
+ return Number(defaults[k]??0);
+}
+function isHoliday(d){
+ const m=monthData();
+ return Array.isArray(m.holidays) && m.holidays.includes(dayKey(d));
+}
+function normalizeDay(x){x.classes=Number(x.classes)||0;x.attendance=(x.attendance||[]).slice(0,x.classes);while(x.attendance.length<x.classes)x.attendance.push(null);return x;}
+function pct(a,c){return c?Math.round(a/c*1000)/10:0;}
+
+function render(){
+  document.getElementById('year').innerHTML=''; for(let y=view.getFullYear()-2;y<=view.getFullYear()+2;y++) document.getElementById('year').innerHTML+=`<option ${y===view.getFullYear()?'selected':''}>${y}</option>`;
+  document.getElementById('month').innerHTML=months.map((m,i)=>`<option value="${i}" ${i===view.getMonth()?'selected':''}>${m}</option>`).join('');
+  document.getElementById('monthTitle').textContent=`${months[view.getMonth()]} ${view.getFullYear()}`;
+  renderCalendar(); renderSummary(); save();
+}
+document.getElementById('year').onchange=e=>{view.setFullYear(+e.target.value);render()};
+document.getElementById('month').onchange=e=>{view.setMonth(+e.target.value);render()};
+
+function renderCalendar(){
+ const el=document.getElementById('calendar'); let first=new Date(view.getFullYear(),view.getMonth(),1).getDay(), days=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+ let h=dayNames.map(x=>`<div class="dow">${x}</div>`).join(''); for(let i=0;i<first;i++)h+='<div></div>';
+ for(let d=1;d<=days;d++){let holiday=isHoliday(d), x=getDay(d), cls=x?.classes??(holiday?0:defaultClasses(d)), att=x?.attendance||[], p=att.filter(v=>v===true).length,a=att.filter(v=>v===false).length, known=p+a, status=holiday?'holiday-day':(known===0?'':p===cls&&cls>0?'present-day':a===cls&&cls>0?'absent-day':'');
+ h+=`<div class="day ${[0,6].includes(new Date(view.getFullYear(),view.getMonth(),d).getDay())?'weekend':''} ${status}">
+ <div class="num">${d}</div><div class="classes">${holiday?'🎉 HOLIDAY':`${cls} class${cls!==1?'es':''} · ${known?`${p}P/${a}A`: 'not recorded'}`}</div>
+ <div class="day-btns">${holiday?'<button class="btn-soft" onclick="openDayModal('+d+')">Edit Holiday</button>':'<button class="btn-soft" onclick="quickDay('+d+',true)">P</button><button class="btn-danger" onclick="quickDay('+d+',false)">A</button><button onclick="openDayModal('+d+')">Edit</button>'}</div></div>`}
+ el.innerHTML=h;
+}
+function quickDay(d,val){
+ if(isHoliday(d)){toast('Holiday — no classes recorded');return;}
+ let x=ensureDay(d);x=normalizeDay(x);x.attendance=Array(x.classes).fill(val);save();render();
+}
+function openDayModal(d){
+ d=d||new Date().getDate(); let x=getDay(d)||{classes:defaultClasses(d),attendance:Array(defaultClasses(d)).fill(null)};x=normalizeDay(x);
+ document.getElementById('modal').innerHTML=`<h3>Day ${d} ${months[view.getMonth()]} ${view.getFullYear()}</h3>
+ <label>Number of classes conducted</label><input id="dayClasses" type="number" min="0" max="20" value="${x.classes}" style="margin:8px 0 14px">
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px">
+   <button class="btn-primary" onclick="setAllModalAttendance(true)">✓ Present All</button>
+   <button class="btn-danger" onclick="setAllModalAttendance(false)">✕ Absent All</button>
+   <button class="btn-soft" onclick="setAllModalAttendance(null)">Clear All</button>
+ </div>
+ <div id="classRows"></div>
+ <div class="modal-actions"><button onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="saveDay(${d})">Save</button></div>`;
+ document.getElementById('dayClasses').oninput=()=>renderClassRows(x);
+ renderClassRows(x);document.getElementById('modalBack').style.display='flex';
+}
+function renderClassRows(old){let n=Math.max(0,+document.getElementById('dayClasses').value||0), h='<div class="note">Attendance for each class:</div>';
+ for(let i=0;i<n;i++){let v=old.attendance[i];h+=`<div style="display:flex;gap:8px;align-items:center;margin:8px 0"><b style="width:45px">Class ${i+1}</b><button class="${v===true?'btn-primary':''}" onclick="setModalVal(${i},true)">Present</button><button class="${v===false?'btn-danger':''}" onclick="setModalVal(${i},false)">Absent</button><button onclick="setModalVal(${i},null)">Clear</button></div>`}
+ document.getElementById('classRows').innerHTML=h;
+ window.modalAttendance=(old.attendance||[]).slice(0,n);while(window.modalAttendance.length<n)window.modalAttendance.push(null);
+}
+function setAllModalAttendance(v){
+ const n=Math.max(0,+document.getElementById('dayClasses').value||0);
+ window.modalAttendance=Array(n).fill(v);
+ renderClassRows({attendance:window.modalAttendance});
+}
+function setModalVal(i,v){window.modalAttendance[i]=v;let old={attendance:window.modalAttendance};renderClassRows(old);}
+function saveDay(d){let n=+document.getElementById('dayClasses').value||0;monthData().days[dayKey(d)]={classes:n,attendance:(window.modalAttendance||[]).slice(0,n)};save();closeModal();render();}
+function closeModal(){document.getElementById('modalBack').style.display='none'}
+
+function projectedMonthEnd(){
+ // This projection is intentionally for the SELECTED/CURRENT month only.
+ // It does not include attendance from previous months.
+ let total=0,p=0,a=0,remaining=0;
+ const m=monthData();
+ Object.values(m.days||{}).forEach(x=>{
+   x=normalizeDay(x);
+   total+=x.classes||0;
+   p+=(x.attendance||[]).filter(v=>v===true).length;
+   a+=(x.attendance||[]).filter(v=>v===false).length;
+ });
+
+ const now=new Date(), y=view.getFullYear(), mo=view.getMonth();
+ const last=new Date(y,mo+1,0).getDate();
+ const selectedIndex=y*12+mo, currentIndex=now.getFullYear()*12+now.getMonth();
+ let start=1;
+ if(selectedIndex<currentIndex) start=last+1;
+ else if(selectedIndex===currentIndex) start=now.getDate();
+
+ for(let d=start;d<=last;d++){
+   if(isHoliday(d)) continue;
+   const existing=getDay(d);
+   const classes=existing ? normalizeDay(existing).classes : defaultClasses(d);
+   const att=existing ? existing.attendance : [];
+   const known=att.filter(v=>v===true||v===false).length;
+   remaining+=Math.max(0,classes-known);
+ }
+
+ const recorded=p+a;
+ const denominator=recorded+remaining;
+ const projected=denominator?((p+remaining)/denominator*100):(recorded?((p/recorded)*100):0);
+ return {projected,remaining,p,a,total,denominator};
+}
+function renderCombinedAttendance(){
+ let rows=[];
+ Object.entries(data.months||{}).sort(([a],[b])=>a.localeCompare(b)).forEach(([key,m])=>{
+   let conducted=0,attended=0,missed=0;
+   Object.values(m.days||{}).forEach(x=>{
+     x=normalizeDay(x);
+     attended+=(x.attendance||[]).filter(v=>v===true).length;
+     missed+=(x.attendance||[]).filter(v=>v===false).length;
+   });
+   conducted=attended+missed;
+   if(conducted||attended||missed){
+     const [yy,mm]=key.split('-').map(Number);
+     rows.push({key,label:`${months[mm-1]} ${yy}`,conducted,attended,missed,
+       percentage:pct(attended,attended+missed)});
+   }
+ });
+
+ const el=document.getElementById('combinedAttendance');
+ if(!rows.length){
+   el.innerHTML='<div class="note">Record attendance in at least one month to see the combined percentage.</div>';
+   return;
+ }
+
+ const totalConducted=rows.reduce((s,r)=>s+r.conducted,0);
+ const totalAttended=rows.reduce((s,r)=>s+r.attended,0);
+ const totalMissed=rows.reduce((s,r)=>s+r.missed,0);
+ const totalRecorded=totalAttended+totalMissed;
+ const combined=totalRecorded ? (totalAttended/totalRecorded*100) : 0;
+
+ const pr=projectedMonthEnd();
+ const remainingCurrent=pr.remaining;
+ const combinedAttendAll=totalAttended+remainingCurrent;
+ const combinedAfterAll=totalRecorded+remainingCurrent;
+ const projectedCombined=combinedAfterAll ? (combinedAttendAll/combinedAfterAll*100) : combined;
+
+ const scenarios=[3,5,8,10];
+ const missRows=scenarios.map(n=>{
+   const missed=Math.min(n,remainingCurrent);
+   const attendedRemaining=Math.max(0,remainingCurrent-missed);
+   const denom=totalRecorded+remainingCurrent;
+   const projected=denom ? ((totalAttended+attendedRemaining)/denom*100) : combined;
+   return {requested:n,effective:missed,projected};
+ });
+ el.innerHTML=`
+   <div style="background:#fafbff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+     <div class="stat-label">Current combined attendance</div>
+     <div class="stat green" style="font-size:27px">${combined.toFixed(1)}%</div>
+     <div class="note">${totalAttended} attended / ${totalRecorded} recorded classes across all recorded months</div>
+   </div>
+   <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:12px">
+     <div class="stat-label">Projected combined attendance — attend all remaining classes this month</div>
+     <div class="stat green" style="font-size:25px">${projectedCombined.toFixed(1)}%</div>
+     <div class="note">Attend all ${remainingCurrent} remaining class${remainingCurrent===1?'':'es'} in ${months[view.getMonth()]} ${view.getFullYear()}</div>
+   </div>
+   <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px;margin-bottom:12px">
+     <div class="stat-label">Projected combined attendance — if you miss upcoming classes</div>
+     <table style="margin-top:8px">
+       <thead><tr><th>Classes missed</th><th>Combined projected %</th></tr></thead>
+       <tbody>${missRows.map(r=>{
+         const label=r.requested>remainingCurrent ? `${r.requested} (only ${remainingCurrent} left)` : `${r.requested}`;
+         return `<tr><td><b>${label}</b></td><td class="${r.projected>=data.target?'green':'red'}"><b>${r.projected.toFixed(1)}%</b></td></tr>`;
+       }).join('')}</tbody>
+     </table>
+     <p class="note" style="margin:8px 0 0">If a scenario is larger than the remaining classes, the missed count is capped at the actual remaining classes; all other remaining classes are assumed Present.</p>
+   </div>
+   <table>
+     <thead><tr><th>Month</th><th>Attended</th><th>Conducted</th><th>%</th></tr></thead>
+     <tbody>${rows.map(r=>`<tr><td>${r.label}</td><td class="green"><b>${r.attended}</b></td><td>${r.conducted}</td><td><b>${r.percentage.toFixed(1)}%</b></td></tr>`).join('')}</tbody>
+   </table>
+   <p class="note" style="margin-bottom:0">Conducted/recorded classes = Present + Absent. Unmarked scheduled classes are not counted as conducted until you mark them Present or Absent. Combined % = total attended ÷ (Present + Absent) × 100.</p>`;
+}
+function renderMissProjection(){
+ const el=document.getElementById('missProjection');
+ if(!el) return;
+ let attended=0, recorded=0;
+ Object.values(monthData().days||{}).forEach(x=>{
+   x=normalizeDay(x);
+   attended+=(x.attendance||[]).filter(v=>v===true).length;
+   recorded+=(x.attendance||[]).filter(v=>v===true||v===false).length;
+ });
+ const pr=projectedMonthEnd();
+ const remaining=Math.max(0,pr.remaining);
+ const currentCombined=recorded ? (attended/recorded*100) : 0;
+ const scenarios=[3,5,8,10];
+ const rows=scenarios.map(n=>{
+   const missed=Math.min(n,remaining);
+   const attendedRemaining=Math.max(0,remaining-missed);
+   const denominator=recorded+remaining;
+   const percentage=denominator ? ((attended+attendedRemaining)/denominator*100) : currentCombined;
+   return {n,missed,percentage};
+ });
+ el.innerHTML=`
+   <div class="note" style="margin-bottom:10px">
+     Current month attendance is <b>${currentCombined.toFixed(1)}%</b>. You have <b>${remaining} class${remaining===1?'':'es'} remaining</b> in the selected month. The calculation cannot go beyond the classes actually remaining.
+   </div>
+   <table>
+     <thead><tr><th>Scenario</th><th>Projected attendance</th></tr></thead>
+     <tbody>${rows.map(r=>{
+       const label=r.n>remaining ? `${r.n} classes (only ${remaining} left)` : `${r.n} classes`;
+       return `<tr><td><b>${label}</b></td><td class="${r.percentage>=data.target?'green':'red'}"><b>${r.percentage.toFixed(1)}%</b></td></tr>`;
+     }).join('')}</tbody>
+   </table>
+   <p class="note" style="margin-bottom:0">For scenarios larger than the remaining classes, the tracker caps the missed count at ${remaining}. All other remaining classes are assumed Present. Values update automatically.</p>`;
+}
+function renderSummary(){
+ let total=0,p=0,a=0;let m=monthData();
+ Object.values(m.days).forEach(x=>{
+   x=normalizeDay(x);
+   p+=x.attendance.filter(v=>v===true).length;
+   a+=x.attendance.filter(v=>v===false).length;
+   total=p+a;
+ });
+ total=p+a;
+ document.getElementById('conducted').textContent=total;document.getElementById('attended').textContent=p;document.getElementById('missed').textContent=a;
+ let val=pct(p,p+a);document.getElementById('percentage').textContent=val+'%';document.getElementById('progress').style.width=Math.min(val,100)+'%';
+ let pr=projectedMonthEnd();
+ const currentPct=(pr.p+pr.a)>0 ? (pr.p/(pr.p+pr.a)*100) : 0;
+ const displayProjection=pr.remaining>0 ? pr.projected : currentPct;
+ document.getElementById('projected').textContent=displayProjection.toFixed(1)+'%';
+ document.getElementById('projectedDetail').textContent=pr.remaining
+   ? `Attend all ${pr.remaining} remaining class${pr.remaining===1?'':'es'} → combined month-end projection`
+   : 'No remaining scheduled classes → same as current attendance';
+ document.getElementById('target').value=data.target;
+ renderCombinedAttendance();
+ renderMissProjection();
+ document.getElementById('targetMsg').textContent=val>=data.target?`You are above your ${data.target}% target by ${(val-data.target).toFixed(1)} percentage points.`:`You are below ${data.target}%. Attend the next ${Math.max(0,Math.ceil((data.target*(p+a)-100*p)/(100-data.target)))} consecutive classes to reach the target (approx.).`;
+ let s=document.getElementById('subjectSummary');
+ s.innerHTML=`<div class="note">Subject tracking is optional. You can configure subjects below.</div>`;
+ if(data.subjects.length)s.innerHTML=data.subjects.map((x,i)=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(x.name)}</b><div class="note">Target: ${x.target}%</div></div>`).join('');
+}
+function saveTarget(){data.target=Math.min(100,Math.max(1,+document.getElementById('target').value||75));save();renderSummary();}
+function changeMonth(n){view.setMonth(view.getMonth()+n);render();}
+function openSettings(){
+ let subs=data.subjects;
+ let wd=data.weeklyDefaults||{mon:5,tue:5,wed:5,thu:5,fri:5,sat:3,sun:0};
+ let hm=monthData(); let holidays=hm.holidays||[];
+ document.getElementById('modal').innerHTML=`<h3>Settings</h3>
+ <h4>Weekly default classes</h4>
+ <p class="note">These defaults are used when a day is first created. You can still change any individual day.</p>
+ <div class="subject-row" style="grid-template-columns:repeat(7,1fr)">
+ ${[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']].map(([k,n])=>`<label style="font-size:11px">${n}<input id="wd_${k}" type="number" min="0" max="20" value="${wd[k]??0}"></label>`).join('')}
+ </div>
+ <h4>Holidays in ${months[view.getMonth()]} ${view.getFullYear()}</h4>
+ <p class="note">Enter dates as day numbers. Example: <b>2, 15, 26</b>. Holidays automatically become 0-class days.</p>
+ <input id="holidayInput" type="text" value="${holidays.map(x=>parseInt(x,10)).filter(Boolean).join(', ')}" placeholder="2, 15, 26">
+ <h4>Subjects</h4>
+ <div id="subjects">${subs.map((x,i)=>subjectRow(x,i)).join('')}</div>
+ <button class="btn-soft" onclick="addSubject()">＋ Add subject</button>
+ <div class="modal-actions"><button onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="saveSubjects()">Save Settings</button></div>`;
+ document.getElementById('modalBack').style.display='flex';
+}
+function subjectRow(x,i){return `<div class="subject-row"><input id="sn${i}" value="${esc(x.name)}" placeholder="Subject name"><input id="st${i}" type="number" min="1" max="100" value="${x.target||75}"><button class="btn-danger" onclick="this.parentElement.remove()">Remove</button></div>`}
+function addSubject(){let n=document.querySelectorAll('.subject-row').length;document.getElementById('subjects').insertAdjacentHTML('beforeend',subjectRow({name:'',target:75},n));}
+function saveSubjects(){
+ let rows=[...document.querySelectorAll('#subjects .subject-row')];
+ data.subjects=rows.map((r,i)=>({name:document.getElementById('sn'+i)?.value.trim()||'Subject',target:+document.getElementById('st'+i)?.value||75}));
+ data.weeklyDefaults={mon:+document.getElementById('wd_mon').value||0,tue:+document.getElementById('wd_tue').value||0,wed:+document.getElementById('wd_wed').value||0,thu:+document.getElementById('wd_thu').value||0,fri:+document.getElementById('wd_fri').value||0,sat:+document.getElementById('wd_sat').value||0,sun:+document.getElementById('wd_sun').value||0};
+ const raw=document.getElementById('holidayInput').value.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>n>=1&&n<=31);
+ monthData().holidays=[...new Set(raw)].map(dayKey);
+ raw.forEach(d=>{let k=dayKey(d);if(monthData().days[k]){monthData().days[k].classes=0;monthData().days[k].attendance=[];}});
+ save();closeModal();render();toast('Settings saved');
+}
+function clearMonth(){
+ const key=monthKey();
+ const label=`${months[view.getMonth()]} ${view.getFullYear()}`;
+ const oldMonth=data.months && data.months[key] ? JSON.parse(JSON.stringify(data.months[key])) : null;
+ if(!data.months) data.months={};
+ data.months[key]={days:{},holidays:[]};
+ save();
+ render();
+ if(oldMonth){showUndoClear(label,oldMonth)}else{toast(`${label} is already clear`)}
+}
+function showUndoClear(label, oldMonth){
+ let existing=document.getElementById('undoClear'); if(existing) existing.remove();
+ const box=document.createElement('div'); box.id='undoClear';
+ box.style.cssText='position:fixed;bottom:20px;left:20px;right:20px;max-width:520px;margin:auto;background:#172033;color:white;padding:14px 16px;border-radius:12px;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;box-shadow:0 12px 35px rgba(0,0,0,.22)';
+ box.innerHTML=`<span>✅ ${label} cleared successfully.</span><button style="background:white;color:#172033" onclick="undoClearMonth()">Undo</button>`;
+ document.body.appendChild(box); window.lastClearedMonth={key:monthKey(),data:oldMonth};
+ setTimeout(()=>{if(box.parentNode)box.remove()},5000);
+}
+function undoClearMonth(){
+ if(!window.lastClearedMonth)return;
+ if(!data.months)data.months={};
+ data.months[window.lastClearedMonth.key]=window.lastClearedMonth.data;
+ save();render();
+ const box=document.getElementById('undoClear'); if(box)box.remove();
+ toast('Month restored');window.lastClearedMonth=null;
+}
+function markAllCurrentWeek(val){let m=monthData(),days=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();for(let d=1;d<=days;d++){let day=new Date(view.getFullYear(),view.getMonth(),d).getDay();if(day>0&&day<6){let x=ensureDay(d);x.attendance=Array(x.classes).fill(val)}}save();render();toast('Weekday classes marked present');}
+function exportData(){let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='college-attendance-backup.json';a.click();URL.revokeObjectURL(a.href);}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();render();toast('Backup imported')}catch{alert('Invalid backup file')}};r.readAsText(f);}
+function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+render();
+let trackerDate=new Date().toDateString();
+setInterval(()=>{const today=new Date().toDateString();if(today!==trackerDate){trackerDate=today;render();}},60000);
+</script>
+</body>
+</html>
