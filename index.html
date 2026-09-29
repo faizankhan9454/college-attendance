@@ -98,12 +98,15 @@ let cloudReady=false;
 let cloudUpdatedAt=null;
 let cloudSyncInProgress=false;
 let lastCloudError='';
+let localChangeVersion=0;
+let cloudWriteVersion=0;
 
 function isMeaningfulData(x){
   if(!x) return false;
   return Object.keys(x.months||{}).some(k=>Object.values(x.months[k]?.days||{}).some(d=>(d.attendance||[]).some(v=>v===true||v===false)));
 }
 async function loadSharedData(){
+  const loadVersion=localChangeVersion;
   try{
     const r=await fetch(SUPABASE_URL+'/rest/v1/attendance_state?id=eq.'+encodeURIComponent(SHARED_ID)+'&select=data,updated_at',{
       headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}
@@ -111,9 +114,13 @@ async function loadSharedData(){
     if(!r.ok) throw new Error('Cloud read failed: '+r.status);
     const rows=await r.json();
     if(rows.length && rows[0].data && Object.keys(rows[0].data).length){
-      data=rows[0].data;
-      cloudUpdatedAt=rows[0].updated_at||null;
-      localStorage.setItem(KEY,JSON.stringify(data));
+      if(localChangeVersion===loadVersion && !cloudSyncInProgress){
+        data=rows[0].data;
+        cloudUpdatedAt=rows[0].updated_at||null;
+        localStorage.setItem(KEY,JSON.stringify(data));
+      }else if(localChangeVersion!==loadVersion){
+        await syncSharedData();
+      }
     }else if(isMeaningfulData(data)){
       await syncSharedData();
     }
@@ -128,6 +135,8 @@ async function loadSharedData(){
 async function syncSharedData(){
   if(!cloudReady || cloudSyncInProgress) return;
   cloudSyncInProgress=true;
+  const writeVersion=localChangeVersion;
+  cloudWriteVersion=writeVersion;
   try{
     const now=new Date().toISOString();
     const r=await fetch(SUPABASE_URL+'/rest/v1/attendance_state',{
@@ -143,6 +152,7 @@ async function syncSharedData(){
     if(!r.ok) throw new Error('Cloud save failed: '+r.status);
     cloudUpdatedAt=now;
     lastCloudError='';
+    if(localChangeVersion===writeVersion) cloudWriteVersion=writeVersion;
   }catch(e){
     lastCloudError=e.message||String(e);
     console.error(e);
@@ -171,7 +181,11 @@ let view=new Date(); view.setDate(1);
 const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-function save(){localStorage.setItem(KEY,JSON.stringify(data));if(cloudReady)syncSharedData();}
+function save(){
+  localChangeVersion++;
+  localStorage.setItem(KEY,JSON.stringify(data));
+  if(cloudReady) syncSharedData();
+}
 function monthKey(){return `${view.getFullYear()}-${String(view.getMonth()+1).padStart(2,'0')}`;}
 function monthData(){let k=monthKey(); if(!data.months[k]) data.months[k]={days:{}}; return data.months[k];}
 function dayKey(d){return String(d).padStart(2,'0');}
@@ -435,7 +449,10 @@ function subjectRow(x,i){return `<div class="subject-row"><input id="sn${i}" val
 function addSubject(){let n=document.querySelectorAll('.subject-row').length;document.getElementById('subjects').insertAdjacentHTML('beforeend',subjectRow({name:'',target:75},n));}
 function saveSubjects(){
  let rows=[...document.querySelectorAll('#subjects .subject-row')];
- data.subjects=rows.map((r,i)=>({name:document.getElementById('sn'+i)?.value.trim()||'Subject',target:+document.getElementById('st'+i)?.value||75}));
+ data.subjects=rows.map(r=>({
+   name:r.querySelector('input[type="text"]')?.value.trim()||'Subject',
+   target:+r.querySelector('input[type="number"]')?.value||75
+ }));
  data.weeklyDefaults={mon:+document.getElementById('wd_mon').value||0,tue:+document.getElementById('wd_tue').value||0,wed:+document.getElementById('wd_wed').value||0,thu:+document.getElementById('wd_thu').value||0,fri:+document.getElementById('wd_fri').value||0,sat:+document.getElementById('wd_sat').value||0,sun:+document.getElementById('wd_sun').value||0};
  const raw=document.getElementById('holidayInput').value.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>n>=1&&n<=31);
  monthData().holidays=[...new Set(raw)].map(dayKey);
@@ -477,7 +494,11 @@ render();
 loadSharedData();
 let trackerDate=new Date().toDateString();
 setInterval(()=>{const today=new Date().toDateString();if(today!==trackerDate){trackerDate=today;render();}},60000);
-setInterval(refreshSharedData,5000);
+// Do not continuously pull the shared row in the background.
+ // A background refresh can race with Save Settings and replace the user's just-saved
+ // state with another client's older snapshot. Cloud data is loaded on page open and
+ // every explicit local save is written back to Supabase.
+
 </script>
 </body>
 </html>
