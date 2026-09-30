@@ -494,10 +494,9 @@ render();
 loadSharedData();
 let trackerDate=new Date().toDateString();
 setInterval(()=>{const today=new Date().toDateString();if(today!==trackerDate){trackerDate=today;render();}},60000);
-// Do not continuously pull the shared row in the background.
- // A background refresh can race with Save Settings and replace the user's just-saved
- // state with another client's older snapshot. Cloud data is loaded on page open and
- // every explicit local save is written back to Supabase.
+// Keep all users on the latest shared state. Refresh frequently, but never pull while
+ // this client is actively writing, so a local Save cannot be overwritten mid-request.
+setInterval(()=>{ refreshSharedData(); },2000);
 
 </script>
 </body>
